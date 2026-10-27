@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NetSage</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="top">
+  <div class="brand">
+    <div class="mark">NETSAGE</div>
+    <div class="subtitle">{{ title }}</div>
+  </div>
+  <div class="controls">
+    <div class="seg" id="modeSeg">
+      <button data-mode="sim">Simulation</button>
+      <button data-mode="live">Live Wi-Fi</button>
+    </div>
+    <label class="switch"><input type="checkbox" id="autoHeal"><span></span>Auto-heal</label>
+    <label class="switch"><input type="checkbox" id="predictive"><span></span>Predictive</label>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button data-tab="overview" class="on">Overview</button>
+  <button data-tab="twin">Digital Twin</button>
+  <button data-tab="xai">Explainability</button>
+  <button data-tab="model">Model</button>
+  <button data-tab="aps" id="apsTab" hidden>Access Points</button>
+</nav>
+
+<div id="banner" class="banner" hidden></div>
+
+<main>
+<!-- ============================== OVERVIEW ============================== -->
+<section class="tab on" id="tab-overview">
+  <div class="grid g3">
+    <div class="card status" id="statusCard">
+      <div class="label">Network diagnosis</div>
+      <div class="status-row">
+        <div class="pill" id="statusPill">-</div>
+        <div class="conf"><span id="confVal">-</span><small>confidence</small></div>
+      </div>
+      <h2 id="statusTitle">Starting...</h2>
+      <p class="muted" id="statusMeaning"></p>
+      <ul class="evidence" id="evidence"></ul>
+    </div>
+    <div class="card">
+      <div class="label">Fault prediction <span class="muted" id="horizon"></span></div>
+      <div class="risk">
+        <div class="risk-num" id="riskVal">0%</div>
+        <div class="risk-txt"><div id="riskForecast">No fault expected</div>
+          <div class="muted small" id="riskDrivers"></div></div>
+      </div>
+      <div class="bar"><div id="riskBar"></div><i class="thr"></i></div>
+      <div class="muted small">Deep network over the last 10 samples. Alert threshold 70%.</div>
+    </div>
+    <div class="card">
+      <div class="label">Self-healing</div>
+      <div class="phase" id="phase">MONITORING</div>
+      <ol class="steps" id="incidentSteps"><li class="muted">No open incident.</li></ol>
+      <div id="approveBox" hidden>
+        <button class="btn gold" id="approveBtn">Approve recommended action</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="grid g2w">
+    <div class="card">
+      <div class="label">Live telemetry <span class="legend"><i class="lg-lat"></i>Internet latency
+        <i class="lg-loss"></i>Packet loss <i class="lg-risk"></i>Fault risk</span></div>
+      <canvas id="chart" height="330"></canvas>
+    </div>
+    <div class="card">
+      <div class="label" id="faultTitle">Inject a fault</div>
+      <p class="muted small" id="faultHint"></p>
+      <div class="faults" id="faults"></div>
+      <div class="row gap" id="liveDur" hidden>
+        <span class="muted small">Duration</span>
+        <select id="dur"><option>30</option><option selected>60</option><option>120</option></select>
+        <span class="muted small">s</span>
+      </div>
+      <div id="activeFault" class="muted small"></div>
+      <button class="btn ghost" id="clearBtn">Reset network</button>
+    </div>
+  </div>
+
+  <div class="grid g2">
+    <div class="card">
+      <div class="label">Incidents</div>
+      <table class="tbl" id="incTable"><thead><tr>
+        <th>#</th><th>Type</th><th>Fault</th><th>Action</th><th>Outcome</th><th>Time</th></tr></thead>
+        <tbody></tbody></table>
+    </div>
+    <div class="card">
+      <div class="label">Event log</div>
+      <div class="log" id="log"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== DIGITAL TWIN ============================== -->
+<section class="tab" id="tab-twin">
+  <div class="grid g2w">
+    <div class="card">
+      <div class="label">Digital twin <span class="muted" id="twinMeta"></span></div>
+      <svg id="topo" viewBox="0 0 1060 560" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="legend small"><i class="lg-ok"></i>healthy <i class="lg-warn"></i>degraded
+        <i class="lg-down"></i>failed <i class="lg-probe"></i>monitored path</div>
+    </div>
+    <div class="card">
+      <div class="label">Twin state</div>
+      <table class="kv" id="twinKv"></table>
+      <div class="label mt">User groups</div>
+      <table class="tbl" id="groupTbl"><thead><tr><th>Group</th><th>AP</th><th>Users</th>
+        <th>Latency</th><th>Loss</th></tr></thead><tbody></tbody></table>
+    </div>
+  </div>
+  <div class="card">
+    <div class="label">Safe recovery planning <span class="muted" id="planSrc"></span></div>
+    <p class="muted small">Every candidate action is executed on a copy of the twin first. Only an
+      action that fixes the fault and passes every safety constraint may touch the real network.</p>
+    <div class="row gap wrap">
+      <span class="muted small">What-if: simulate the playbook for</span>
+      <select id="whatifSel"></select>
+      <button class="btn" id="whatifBtn">Run on twin</button>
+    </div>
+    <div id="plan"></div>
+    <div class="label mt">Safety constraints</div>
+    <ul class="constraints" id="constraints"></ul>
+  </div>
+</section>
+
+<!-- ============================== XAI ============================== -->
+<section class="tab" id="tab-xai">
+  <div class="grid g2">
+    <div class="card">
+      <div class="label">Why this diagnosis - feature attribution (integrated gradients)</div>
+      <div id="attr"></div>
+      <p class="muted small">Gold bars push the network towards the diagnosed fault, grey bars push
+        against it. Attribution is measured from a healthy reference link.</p>
+    </div>
+    <div class="card">
+      <div class="label">Class probabilities</div>
+      <div id="probs"></div>
+    </div>
+  </div>
+  <div class="grid g2">
+    <div class="card">
+      <div class="label">Evidence in plain language</div>
+      <ul class="evidence" id="evidence2"></ul>
+    </div>
+    <div class="card">
+      <div class="label">What drives the fault risk</div>
+      <div id="drivers"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== MODEL ============================== -->
+<section class="tab" id="tab-model">
+  <div class="grid g3">
+    <div class="card"><div class="label">Fault diagnoser</div><table class="kv" id="mDiag"></table></div>
+    <div class="card"><div class="label">Fault predictor</div><table class="kv" id="mPred"></table></div>
+    <div class="card"><div class="label">Training loss</div><canvas id="lossChart" height="170"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="label">Confusion matrix (held-out test set)</div>
+    <div id="confusion"></div>
+  </div>
+</section>
+
+<!-- ============================== ACCESS POINTS ============================== -->
+<section class="tab" id="tab-aps">
+  <div class="card">
+    <div class="label">Access points of <span id="apSsid">-</span>
+      <button class="btn small ghost right" id="rescanBtn">Rescan</button></div>
+    <p class="muted small">Mark an AP <b>Good</b> to always prefer it, <b>Bad</b> to never use it.
+      With Auto-heal on, NetSage steers away from a Bad AP automatically.</p>
+    <table class="tbl" id="apTable"><thead><tr><th>BSSID</th><th>Signal</th><th>Band</th><th>Ch</th>
+      <th>Loss</th><th>Latency</th><th>Quality</th><th>Mark</th><th></th></tr></thead><tbody></tbody></table>
+  </div>
+</section>
+</main>
+
+<footer class="foot">NetSage <span id="ver"></span> · deep learning, explainable AI and a digital twin for
+  safe self-healing networks</footer>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
